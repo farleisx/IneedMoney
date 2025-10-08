@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Ammoue AI Code Builder</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body{font-family:Inter,system-ui; background:#f8f9fb; margin:0; padding:24px;}
+    .wrap{max-width:960px;margin:auto;background:#fff;border-radius:10px;padding:20px;box-shadow:0 6px 28px rgba(0,0,0,0.06);}
+    textarea{width:100%;font-family:monospace;font-size:13px;min-height:120px;padding:10px;border:1px solid #ccc;border-radius:6px;}
+    button{background:#007bff;color:#fff;border:0;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:600;}
+    button:disabled{opacity:0.6;cursor:not-allowed;}
+    pre{background:#0f1724;color:#e5e7eb;padding:10px;border-radius:8px;overflow:auto;max-height:420px;}
+    label{font-weight:600;margin-top:10px;display:block;}
+    .row{display:flex;gap:12px;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Ammoue AI — Code Builder</h1>
+    <p>Type a prompt to generate or update your project.</p>
+
+    <label>Prompt</label>
+    <textarea id="prompt" placeholder='e.g. "Add login page and user authentication"'></textarea>
+
+    <label>Previous Code (optional)</label>
+    <textarea id="previous" placeholder="Paste your previous markdown code"></textarea>
+
+    <div style="margin-top:10px;display:flex;gap:10px;">
+      <button id="generate">Generate</button>
+      <button id="preview">Open Preview</button>
+      <button id="copy">Copy Output</button>
+    </div>
+
+    <h3 style="margin-top:20px;">Result</h3>
+    <pre id="output">// Waiting...</pre>
+  </div>
+
+  <script>
+    const generateBtn = document.getElementById("generate");
+    const previewBtn = document.getElementById("preview");
+    const copyBtn = document.getElementById("copy");
+    const promptEl = document.getElementById("prompt");
+    const previousEl = document.getElementById("previous");
+    const outputEl = document.getElementById("output");
+
+    let lastOutput = "";
+
+    async function generate() {
+      const prompt = promptEl.value.trim();
+      if (!prompt) return alert("Enter a prompt first.");
+
+      generateBtn.disabled = true;
+      outputEl.textContent = "// Generating...";
+      try {
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt, previousCode: previousEl.value }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Request failed");
+        lastOutput = data.output || "";
+        outputEl.textContent = lastOutput;
+      } catch (err) {
+        outputEl.textContent = "// Error: " + err.message;
+      } finally {
+        generateBtn.disabled = false;
+      }
+    }
+
+    function openPreview() {
+      if (!lastOutput) return alert("Generate something first!");
+      let htmlCode = "";
+
+      // Try to extract <html> content
+      const htmlMatch = lastOutput.match(/<html[\s\S]*<\/html>/i);
+      if (htmlMatch) htmlCode = htmlMatch[0];
+      else {
+        // Try to find ```html blocks
+        const block = lastOutput.match(/```html\n([\s\S]*?)```/i);
+        if (block) htmlCode = block[1];
+      }
+
+      if (!htmlCode.trim()) return alert("No HTML found in output.");
+
+      const newWin = window.open("about:blank", "_blank");
+      newWin.document.open();
+      newWin.document.write(htmlCode);
+      newWin.document.close();
+    }
+
+    function copyOutput() {
+      if (!lastOutput) return;
+      navigator.clipboard.writeText(lastOutput);
+      alert("Output copied!");
+    }
+
+    generateBtn.addEventListener("click", generate);
+    previewBtn.addEventListener("click", openPreview);
+    copyBtn.addEventListener("click", copyOutput);
+  </script>
+</body>
+</html>
